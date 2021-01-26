@@ -1,0 +1,328 @@
+---
+title: "LTC Covid International Report October update"
+author: "David Henderson"
+date: "06/10/2020"
+output: 
+  html_document:
+    theme: spacelab
+    toc: true
+    toc_float: true
+    df_print: paged
+    highlight: haddock
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 12, fig.height = 9)
+```
+
+#Intro
+
+## Software
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(here)
+library(ggthemes)
+library(ggrepel)
+
+#Short cut for csv output with html tables
+my_datatable <- function(x){
+  DT::datatable(x, extensions = "Buttons", options = list(dom = "Bfrtip", 
+                                                          buttons = c("csv")))
+}
+
+#Baseline plot settings
+theme_set(theme_minimal(base_family = "Roboto", base_size = 20) +
+            theme(panel.grid.minor = element_blank(),
+                  axis.title.y = element_text(margin = margin(0, 20, 0, 0)),
+                  axis.title.x = element_text(margin = margin(20, 0, 0, 0)),
+                  plot.caption = element_text(colour = "#AAAAAA", size = 12),
+                  plot.margin = margin(3,15,3,3,"mm")))
+
+#global options for scientific numbers and significant digits.          
+options(scipen = 10,
+        digits = 4)
+```
+
+
+# Import and tidy data
+
+```{r}
+int_data <- read_xlsx(here("data/20201014_mort_datat.xlsx"), range = "A3:Q29", 
+                      col_types = c("text", "date", "text", "numeric", "numeric",
+                                    "numeric", "numeric", "numeric", "numeric",
+                                    "numeric", "numeric", "numeric", "numeric",
+                                    "numeric", "numeric", "numeric", "numeric"))
+```
+
+```{r}
+int_data %>% 
+  rename(country = Country,
+         date = Date,
+         approach = `Approach to measuring deaths`,
+         n_cv_deaths = `Total number deaths linked to COVID-19`,
+         n_ch_res_deaths = `Number of deaths of care home residents linked to COVID-19`,
+         n_deaths_in_ch = `Number of deaths in care homes`,
+         pct_ch_res_deaths_all_deaths = `Number of care home resident deaths as % of all COVID-19 deaths`,
+         pct_deaths_ch_all_deaths = `Number of deaths in care homes as % of all COVID-19 deaths`,
+         n_deaths_non_ch_pop = `Number of deaths of people not living in care homes`,
+         n_ch_beds = `Number of care home beds`,
+         n_ch_residents = `Number of care home residents`,
+         pct_covid_deaths_tot_res_or_beds = `Deaths attributed to COVID as percentage of all care home residents/beds`,
+         n_total_pop = `Total  population (to calculate rates of death per 100,000)`,
+         pct_pop_ch = `Share of pop living in care homes`, 
+         n_non_ch_pop = `Population not living in care homes`,
+         deaths_100k_non_ch_pop = `Deaths per 100,000 community-living  population`,
+         amt_test_rate = `Cumulative Tests per 1000 people`) %>% 
+  mutate(date = replace_na(date, as.Date("2020-09-13")),
+         date = ymd(date),
+         approach = replace_na(approach, "Unknown"),
+         approach = factor(approach,
+                           levels = c("Confirmed",
+                                      "Confirmed + Probable",
+                                      "Confirmed + probable",
+                                      "Confirmed + suspected", "Unknown"),
+                           labels = c("Confirmed", "Confirmed/Probable", 
+                                      "Confirmed/probable", 
+                                      "Confirmed/Suspected", "Unknown")),
+         approach = fct_collapse(approach,
+                                 `Confirmed/Probable` = c("Confirmed/Probable", 
+                                                          "Confirmed/probable")),
+         country = case_when(
+           country == "England" ~ "England (UK)",
+           country == "Wales" ~ "Wales (UK)",
+           TRUE ~ country
+         )) %>% 
+  mutate(across(starts_with("n_"), as.integer)) -> int_data
+
+## Should probably redo the calculations here using the "n_" columns....
+int_data
+```
+
+
+# Plot
+
+
+```{r}
+int_data %>% 
+  filter(!is.na(pct_ch_res_deaths_all_deaths)) %>% 
+  ggplot(aes(reorder(country, -pct_ch_res_deaths_all_deaths), pct_ch_res_deaths_all_deaths)) +
+  geom_col(fill = economist_pal()(1)) +
+  scale_y_continuous(limits = c(0, 1),
+                     breaks = scales::pretty_breaks(),
+                     labels = scales::percent_format()) +
+  coord_flip() +
+  labs(x = "",
+       y = "Total COVID-19 deaths accounted for by care home residents",
+       caption = "Countries with missing data excluded") -> fig_1
+fig_1
+```
+
+
+```{r, eval=FALSE}
+ggsave("plots/fig_1.png", fig_1, width = 12, height = 9, dpi = 300)
+```
+
+
+```{r}
+int_data %>% 
+  filter(!is.na(pct_deaths_ch_all_deaths)) %>% 
+  filter(!is.na(pct_ch_res_deaths_all_deaths)) %>% 
+  filter(country != "Jordan" & country != "UK") %>% 
+  select(country, pct_ch_res_deaths_all_deaths, pct_deaths_ch_all_deaths) %>% 
+  pivot_longer(pct_ch_res_deaths_all_deaths:pct_deaths_ch_all_deaths, 
+               names_to = "measure", values_to = "pct") %>% 
+  ggplot(aes(reorder(country, -pct), pct, fill = measure, label = round(pct*100, 0))) +
+  geom_col(position = "dodge") +
+  geom_text(position = position_dodge(width = 0.9),
+            vjust = -0.5) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_economist(labels = c("Total COVID-19 deaths accounted for\nby care home residents",
+                             "COVID-19 deaths within care homes")) +
+  theme(legend.position = "top",
+        axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1)) +
+  labs(x = "",
+       y = "",
+       fill = "",
+       caption = "Countries with missing data excluded") -> fig_2
+fig_2
+```
+
+```{r, eval=FALSE}
+ggsave("plots/fig_2.png", fig_2, width = 12, height = 9, dpi = 300)
+```
+
+
+```{r fig.width=12, fig.height=9}
+int_data %>% 
+  filter(country != "UK") %>% 
+  ggplot(aes(deaths_100k_non_ch_pop, pct_covid_deaths_tot_res_or_beds * 100,
+             label = country)) +
+  geom_point(size = 2) +
+  geom_text_repel(force = 3) +
+  scale_y_continuous(limits = c(0, 8)) +
+  scale_x_continuous(limits = c(0, 100)) +
+  theme(plot.caption = element_text(colour = "#AAAAAA", size = 12)) +
+  labs(x = "Deaths per 100,000 in non-care home population",
+       y = "Deaths per 100 in care home population",
+       caption = "Countries with missing data removed") -> fig_3
+fig_3
+```
+
+```{r, eval=FALSE}
+ggsave("plots/fig_3.png", fig_3, width = 12, height = 9, dpi = 300)
+```
+
+
+
+```{r}
+int_data %>% 
+  filter(!is.na(pct_covid_deaths_tot_res_or_beds)) %>%
+  ggplot(aes(reorder(country, -pct_covid_deaths_tot_res_or_beds), 
+             pct_covid_deaths_tot_res_or_beds)) +
+  geom_col(fill = economist_pal()(1)) +
+  coord_flip() +
+  scale_y_continuous(limits = c(0, 0.08),
+                     labels = scales::percent_format(accuracy = 1),
+                     breaks = scales::pretty_breaks()) +
+  theme(plot.caption = element_text(colour = "#AAAAAA", size = 12),
+        legend.position = "top") +
+  labs(y = "Percentage of care home population where death\n was attributed to COVID-19",
+       x = "",
+       caption = "Countries with missing data removed",
+       fill = "Mortality Recording Approach") -> fig_1a_alt_2
+fig_1a_alt_2
+```
+
+```{r, eval=FALSE}
+ggsave("plots/fig_1a_alt_2.png", fig_1a_alt_2, width = 12, height = 9, dpi = 300)
+```
+
+
+```{r}
+int_data %>% 
+  filter(!is.na(amt_test_rate)) %>% 
+  ggplot(aes(reorder(country, -amt_test_rate), 
+             amt_test_rate)) +
+  geom_col(fill = ptol_pal()(1)) +
+  coord_flip() +
+  scale_y_continuous(limits = c(0, 700)) +
+  theme(plot.caption = element_text(colour = "#AAAAAA", size = 12)) +
+  labs(y = "Total tests per 1000 population",
+       x = "",
+       caption = "Countries with missing data removed") -> fig_blah
+fig_blah
+```
+
+```{r}
+int_data %>% 
+  mutate(deaths_100k_tot_pop = n_cv_deaths/n_total_pop * 100000) %>% 
+  ggplot(aes(amt_test_rate, pct_covid_deaths_tot_res_or_beds * 100, label = country)) +
+  geom_point() +
+  geom_text_repel() +
+  scale_x_continuous(limits = c(0, 700)) +
+  scale_y_continuous(limits = c(0, 10)) +
+  labs(x = "Total test rate per 100,000 population",
+       y = "Deaths per 100 in care home population")
+  
+```
+
+```{r}
+int_data %>% 
+  ggplot(aes(n_total_pop, n_ch_residents, label = country)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  geom_text_repel() +
+  scale_x_log10() +
+  scale_y_log10()
+```
+
+```{r}
+trends <- read_xlsx("data/trends_sheet.xlsx", sheet = 1, skip = 1,
+                    col_types = c("text", "date", rep("numeric", 22))) %>% 
+  slice(-1) %>% 
+  rename(week_number = `...1`,
+         week_ending = `...2`) %>% 
+  pivot_longer(Australia:`United States`, names_to = "country",
+               values_to = "cumulative_deaths") %>% 
+  mutate(week_number = as.integer(week_number)) 
+trends
+```
+
+```{r}
+trends %>% 
+  filter(country %in% c("France", "Denmark", "Canada", "Germany",
+                        "Norway", "Sweden")) %>% 
+  filter(week_number >= 11 & week_number <= 41) %>% 
+  filter(!is.na(cumulative_deaths)) %>% 
+  group_by(country) %>% 
+  mutate(growth_rate = (cumulative_deaths-lag(cumulative_deaths))/lag(cumulative_deaths)) %>% 
+  mutate(label = if_else(week_number == max(week_number), as.character(country),
+                         NA_character_)) %>% 
+  ungroup %>% 
+  ggplot(aes(week_number, growth_rate, 
+             group = country, colour = country,
+             label = label)) +
+  geom_point() +
+  geom_line() +
+  geom_text_repel(nudge_x = 1, na.rm = TRUE) +
+  theme(legend.position = "none")
+```
+
+```{r}
+denmark <- read_xlsx("data/trends_sheet.xlsx", sheet = 2, range = "M4:Q34")
+denmark
+```
+
+
+```{r}
+denmark %>% 
+  select(Week, `confirmed cases in care homes`, `Deaths among confirmed cases`) %>% 
+  rename(week_number = Week,
+         `Care Home Confirmed Cases` = `confirmed cases in care homes`,
+         `Deaths Among Confirmed Cases` = `Deaths among confirmed cases`) %>% 
+  pivot_longer(`Care Home Confirmed Cases`:`Deaths Among Confirmed Cases`,
+               names_to = "measure", values_to = "n") %>% 
+  ggplot(aes(week_number, n, fill = measure)) +
+  geom_col(position = "dodge") +
+  scale_fill_ptol() +
+  theme(legend.position = "top") +
+  labs(x = "Week Number",
+       y = "",
+       fill = "") -> fig_4
+fig_4
+```
+
+
+```{r, eval=FALSE}
+ggsave("plots/fig_4.png", fig_4, width = 12, height = 9, dpi = 300)
+```
+
+
+```{r}
+denmark %>%
+  rename(`Tests per resident` = `% tests per resident`,
+         `Positivity rate` = `positivity rate`,) %>% 
+  pivot_longer(`Tests per resident`:`Positivity rate`, names_to = "measure",
+               values_to = "pct") %>% 
+  ggplot(aes(Week, pct, colour = measure)) +
+  geom_point() +
+  geom_line() +
+  scale_colour_ptol() +
+  scale_y_continuous(limits = c(0, 0.2),
+                     labels = scales::percent_format(accuracy = 1)) +
+  theme(legend.position = "top") +
+  labs(x = "Week number",
+       y = "",
+       colour = "") -> fig_5
+fig_5
+```
+
+```{r, eval=FALSE}
+ggsave("plots/fig_5.png", fig_5, width = 12, height = 9, dpi = 300)
+```
+
+
+# Session Info
