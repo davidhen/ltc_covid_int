@@ -122,7 +122,7 @@ fig_1
 
 
 ```{r, eval=FALSE}
-ggsave("plots/fig_1.png", fig_1, width = 12, height = 9, dpi = 300)
+ggsave("plots/October_2020/fig_1.png", fig_1, width = 12, height = 9, dpi = 300)
 ```
 
 
@@ -151,7 +151,7 @@ fig_2
 ```
 
 ```{r, eval=FALSE}
-ggsave("plots/fig_2.png", fig_2, width = 12, height = 9, dpi = 300)
+ggsave("plots/October_2020/fig_2.png", fig_2, width = 12, height = 9, dpi = 300)
 ```
 
 
@@ -172,7 +172,7 @@ fig_3
 ```
 
 ```{r, eval=FALSE}
-ggsave("plots/fig_3.png", fig_3, width = 12, height = 9, dpi = 300)
+ggsave("plots/October_2020/fig_3.png", fig_3, width = 12, height = 9, dpi = 300)
 ```
 
 
@@ -197,7 +197,7 @@ fig_1a_alt_2
 ```
 
 ```{r, eval=FALSE}
-ggsave("plots/fig_1a_alt_2.png", fig_1a_alt_2, width = 12, height = 9, dpi = 300)
+ggsave("plots/October_2020/fig_1a_alt_2.png", fig_1a_alt_2, width = 12, height = 9, dpi = 300)
 ```
 
 
@@ -297,7 +297,7 @@ fig_4
 
 
 ```{r, eval=FALSE}
-ggsave("plots/fig_4.png", fig_4, width = 12, height = 9, dpi = 300)
+ggsave("plots/October_2020/fig_4.png", fig_4, width = 12, height = 9, dpi = 300)
 ```
 
 
@@ -321,7 +321,7 @@ fig_5
 ```
 
 ```{r, eval=FALSE}
-ggsave("plots/fig_5.png", fig_5, width = 12, height = 9, dpi = 300)
+ggsave("plots/October_2020/fig_5.png", fig_5, width = 12, height = 9, dpi = 300)
 ```
 
 
