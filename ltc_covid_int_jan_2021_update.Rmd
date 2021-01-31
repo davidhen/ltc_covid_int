@@ -32,6 +32,8 @@ my_datatable <- function(x){
   DT::datatable(x, extensions = "Buttons", options = list(dom = "Bfrtip", 
                                                           buttons = c("csv")))
 }
+#Helper function
+`%nin%` <- negate(`%in%`)
 
 #Baseline plot settings
 theme_set(theme_minimal(base_family = "Roboto", base_size = 20) +
@@ -50,53 +52,26 @@ options(scipen = 10,
 # Import and tidy data
 
 ```{r}
-int_data <- read_xlsx(here("data/20210125_int_mort_data.xlsx"), range = "A3:P31", 
-                      col_types = c("text", "date", "text", "numeric", "numeric",
-                                    "numeric", "numeric", "numeric", "numeric",
-                                    "numeric", "numeric", "numeric", "numeric",
-                                    "numeric", "numeric", "numeric"))
-int_data
-```
-
-
-
-
-```{r}
-int_data %>% 
-  rename(country = Country,
-         date = Date,
-         approach = `Approach to measuring deaths`,
-         n_cv_deaths = `Total number deaths linked to COVID-19`,
-         n_ch_res_deaths = `Number of deaths of care home residents linked to COVID-19`,
-         n_deaths_in_ch = `Number of COVID-19 deaths in care homes`,
-         pct_ch_res_deaths_all_deaths = `Number of care home resident deaths as % of all COVID-19 deaths`,
-         pct_deaths_ch_all_deaths = `Number of deaths in care homes as % of all COVID-19 deaths`,
-         n_deaths_non_ch_pop = `Number of deaths of people not living in care homes`,
-         n_ch_beds = `Number of care home beds`,
-         n_ch_residents = `Number of care home residents`,
-         pct_covid_deaths_tot_res_or_beds = `Deaths attributed to COVID as percentage of all care home residents/beds`,
-         n_total_pop = `Total  population (to calculate rates of death per 100,000)`,
-         pct_pop_ch = `Share of pop living in care homes`, 
-         n_non_ch_pop = `Population not living in care homes`,
-         deaths_100k_non_ch_pop = `Deaths per 100,000 community-living  population`) %>% 
-  mutate(date = replace_na(date, as.Date("2021-01-17")),
-         date = ymd(date),
-         approach = str_replace(approach, "probable", "Probable"),
-         approach = factor(approach,
-                           levels = c("Confirmed",
-                                      "Confirmed + Probable",
-                                      "Unclear")),
-         country = case_when(
+int_data <- read_xlsx(here("data/20210131_int_mort_data.xlsx"),
+                      range = "A2:Y31") %>% 
+  select(c(1, 24, 25, 21, 22, 17, 16)) %>% 
+  rename(country = 1,
+         pct_ch_res_deaths_all_deaths = 2,
+         pct_deaths_ch_all_deaths = 3,
+         deaths_100k_non_ch_pop = 4,
+         pct_covid_deaths_tot_res_or_beds = 5,
+         n_total_pop = 6,
+         n_ch_residents = 7) %>% 
+  mutate(country = case_when(
            country == "England" ~ "England (UK)",
            country == "Wales" ~ "Wales (UK)",
            country == "UK" ~ "UK (total)",
            TRUE ~ country
          )) %>% 
-  mutate(across(starts_with("n_"), as.integer)) -> int_data
-
-## Should probably redo the calculations here using the "n_" columns....
+  mutate(across(starts_with("n_"), as.integer)) 
 int_data
 ```
+
 
 
 # Plot
@@ -105,6 +80,7 @@ int_data
 ```{r}
 int_data %>% 
   filter(!is.na(pct_ch_res_deaths_all_deaths)) %>% 
+  filter(country %nin% c("Ireland", "New Zealand")) %>% 
   ggplot(aes(reorder(country, -pct_ch_res_deaths_all_deaths), pct_ch_res_deaths_all_deaths)) +
   geom_col(fill = economist_pal()(1)) +
   scale_y_continuous(limits = c(0, 1),
@@ -127,7 +103,7 @@ ggsave("plots/January_2021/fig_1.png", fig_1, width = 12, height = 9, dpi = 300)
 int_data %>% 
   filter(!is.na(pct_deaths_ch_all_deaths)) %>% 
   filter(!is.na(pct_ch_res_deaths_all_deaths)) %>% 
-  filter(country != "Jordan" & country != "UK (total)") %>% 
+  filter(country %nin% c("Ireland", "New Zealand", "Jordan", "UK (total)")) %>% 
   select(country, pct_ch_res_deaths_all_deaths, pct_deaths_ch_all_deaths) %>% 
   pivot_longer(pct_ch_res_deaths_all_deaths:pct_deaths_ch_all_deaths, 
                names_to = "measure", values_to = "pct") %>% 
